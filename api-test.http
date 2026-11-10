@@ -1,0 +1,38 @@
+### ==============================================================================
+### CycleAware - Feedback API Testing Suite
+### Compatible with VS Code REST Client extension and IntelliJ HTTP Client
+### ==============================================================================
+
+### 1. GET All Feedback (Ordered by ID Descending)
+GET http://localhost:8080/api/feedback
+Accept: application/json
+
+###
+
+### 2. Test CORS Preflight for Feedback Endpoint
+OPTIONS http://localhost:8080/api/feedback
+Origin: http://localhost:5173
+Access-Control-Request-Method: GET
+Access-Control-Request-Headers: Content-Type, Authorization
+
+###
+
+### 3. POST New Verified Feedback
+POST http://localhost:8080/api/feedback
+Content-Type: application/json
+
+{
+  "userName": "Divya & Friends",
+  "overallRating": 5,
+  "destinationAccuracyRating": 5,
+  "budgetCalculatorRating": 5,
+  "comments": "The CycleAware pacing recommendations were wonderful for our trip along NH 44. Padmanabhapuram Palace buffer time was spot on!",
+  "suggestedPlaces": "Lemur Beach, Muttam"
+}
+
+###
+
+### 4. GET Destinations (Sanity Check)
+GET http://localhost:8080/api/destinations
+Accept: application/json
+

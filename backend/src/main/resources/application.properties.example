@@ -1,0 +1,26 @@
+spring.application.name=cycleaware-backend
+server.port=8080
+
+# Database - MySQL Configuration
+spring.datasource.url=${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/cycleaware_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+spring.datasource.username=${SPRING_DATASOURCE_USERNAME:root}
+spring.datasource.password=${SPRING_DATASOURCE_PASSWORD:YOUR_MYSQL_PASSWORD_HERE}
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=false
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
+spring.jpa.properties.hibernate.format_sql=true
+
+# Pagination defaults
+app.pagination.default-page-size=6
+
+# JWT Configuration
+app.jwt.secret=cycleAwareSecretKeyForJwtSigningMustBeAtLeast256BitsLongForHmacSha256Security
+app.jwt.expiration-ms=86400000
+
+# Gemini AI Configuration
+gemini.api.key=${GEMINI_API_KEY:YOUR_GEMINI_API_KEY_HERE}
+
+# Logging
+logging.level.com.cycleaware=INFO

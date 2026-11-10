@@ -1,0 +1,56 @@
+# ==========================================
+# CycleAware Project .gitignore
+# ==========================================
+
+# 1. Sensitive Credentials & Configuration
+application.properties
+**/application.properties
+!application.properties.example
+!**/application.properties.example
+.env
+.env.*
+*.env
+
+# 2. Frontend Build & Dependencies
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+build/
+**/build/
+.pnpm-store/
+
+# 3. Backend (Java / Spring Boot / Maven)
+target/
+**/target/
+.mvn/
+**/.mvn/
+*.class
+*.jar
+*.war
+*.ear
+
+# 4. Logs
+*.log
+**/logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 5. IDE & Editor Artifacts
+.vscode/
+**/.vscode/
+.idea/
+**/.idea/
+*.iml
+*.iws
+*.ipr
+.settings/
+.project
+.classpath
+
+# 6. Operating System Files
+.DS_Store
+Thumbs.db
+Desktop.ini
