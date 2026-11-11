@@ -82,6 +82,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/feedback/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/feedback/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/amenities/**").permitAll()
+                        .requestMatchers("/api/amenities/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/destinations/**").permitAll()
                         .requestMatchers("/api/budget/**").permitAll()

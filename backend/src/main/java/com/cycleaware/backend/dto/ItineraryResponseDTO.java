@@ -14,8 +14,17 @@ public class ItineraryResponseDTO {
     private Integer totalDestinations;
     private Boolean cycleAwarePersonalized;
     private String cycleProfileSummary;
+    private String emotionalSupportMessage;
     private List<ItineraryDayDTO> days;
     private String aiProvider;
     private String generatedAt;
+
+    public String getEmotionalSupportMessage() {
+        return emotionalSupportMessage;
+    }
+
+    public void setEmotionalSupportMessage(String emotionalSupportMessage) {
+        this.emotionalSupportMessage = emotionalSupportMessage;
+    }
 }
 

@@ -48,4 +48,8 @@ export const feedbackApi = {
   getAll: () => api.get('/feedback'),
 };
 
+export const amenitiesApi = {
+  getNearby: (lat, lng, type) => api.get('/amenities', { params: { lat, lng, type } }),
+};
+
 export default api;

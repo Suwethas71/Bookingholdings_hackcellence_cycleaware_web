@@ -20,6 +20,35 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import Footer from '../components/Footer';
+import AmenityModal from '../components/AmenityModal';
+
+// Default & mock Kanniyakumari attraction coordinates for live amenity lookups
+const KANNIYAKUMARI_COORDS = {
+  'sunrise point': { lat: 8.0781, lng: 77.5513 },
+  'thiruvalluvar statue': { lat: 8.0779, lng: 77.5540 },
+  'vivekananda rock memorial': { lat: 8.0782, lng: 77.5554 },
+  'thirparappu waterfalls': { lat: 8.3917, lng: 77.2611 },
+  'mathoor aqueduct': { lat: 8.3361, lng: 77.2948 },
+  'kanyakumari beach': { lat: 8.0793, lng: 77.5508 },
+  'triveni sangam': { lat: 8.0780, lng: 77.5515 },
+  'bhagavathy amman temple': { lat: 8.0796, lng: 77.5505 },
+  'gandhi memorial mandapam': { lat: 8.0801, lng: 77.5498 },
+  'padmanabhapuram palace': { lat: 8.2508, lng: 77.3267 },
+  'vattakottai fort': { lat: 8.1257, lng: 77.5653 },
+  'sunset view point': { lat: 8.0825, lng: 77.5356 },
+  'our lady of ransom church': { lat: 8.0828, lng: 77.5510 },
+};
+
+function resolveActivityCoords(act) {
+  if (act?.latitude != null && act?.longitude != null) {
+    return { lat: Number(act.latitude), lng: Number(act.longitude) };
+  }
+  const key = (act?.destinationName || '').toLowerCase();
+  for (const [place, coords] of Object.entries(KANNIYAKUMARI_COORDS)) {
+    if (key.includes(place)) return coords;
+  }
+  return { lat: 8.0883, lng: 77.5385 };
+}
 
 // Dynamic Smart Badges Parser based on comfortNote keywords
 function parseComfortBadges(note = '') {
@@ -38,6 +67,7 @@ function parseComfortBadges(note = '') {
   ) {
     badges.push({
       id: 'sanitary',
+      apiType: 'pharmacy',
       label: '🛍️ Sanitary Supplies',
       className: 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100',
     });
@@ -55,6 +85,7 @@ function parseComfortBadges(note = '') {
   ) {
     badges.push({
       id: 'medical',
+      apiType: 'hospital',
       label: '🏥 Medical Support',
       className: 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100',
     });
@@ -72,6 +103,7 @@ function parseComfortBadges(note = '') {
   ) {
     badges.push({
       id: 'hydration',
+      apiType: 'hydration',
       label: '🥥 Hydration Station',
       className: 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100',
     });
@@ -86,6 +118,7 @@ function parseComfortBadges(note = '') {
   ) {
     badges.push({
       id: 'washroom',
+      apiType: 'restroom',
       label: '🚻 Washroom Access',
       className: 'bg-teal-50 text-teal-800 border-teal-200 hover:bg-teal-100',
     });
@@ -103,17 +136,24 @@ export default function ItineraryDashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedDay, setSelectedDay] = useState(1);
+  const [amenityModal, setAmenityModal] = useState({
+    isOpen: false,
+    lat: 8.0883,
+    lng: 77.5385,
+    badgeType: 'restroom',
+    destinationName: '',
+  });
 
   // Fallback client-side generator in case the backend or Gemini is temporarily offline
   const generateClientFallback = useCallback(() => {
     const list = selectedDestinations.length > 0
       ? selectedDestinations
       : [
-          { id: 1, name: 'Sunrise Point', category: 'SCENIC', estimatedDuration: '1-2 hours', entryFee: 0, location: 'Kanniyakumari Town', description: 'Witness the simultaneous sunrise over three seas.' },
-          { id: 2, name: 'Thiruvalluvar Statue', category: 'MONUMENT', estimatedDuration: '2-3 hours', entryFee: 70, location: 'Kanniyakumari Shore', description: '133-foot stone statue reachable by ferry.' },
-          { id: 4, name: 'Vivekananda Rock Memorial', category: 'HERITAGE', estimatedDuration: '2-3 hours', entryFee: 70, location: 'Kanniyakumari Island', description: 'Sacred island rock where Swami Vivekananda meditated.' },
-          { id: 12, name: 'Thirparappu Waterfalls', category: 'NATURE', estimatedDuration: '2-3 hours', entryFee: 10, location: 'Thirparappu, 55km', description: '30-metre cascade on Kodayar River with bathing ghats.' },
-          { id: 15, name: 'Mathoor Aqueduct', category: 'SCENIC', estimatedDuration: '1 hour', entryFee: 0, location: 'Mathoor', description: 'Asia\'s largest hanging trough bridge across the valley.' },
+          { id: 1, name: 'Sunrise Point', category: 'SCENIC', estimatedDuration: '1-2 hours', entryFee: 0, location: 'Kanniyakumari Town', latitude: 8.0781, longitude: 77.5513, description: 'Witness the simultaneous sunrise over three seas.' },
+          { id: 2, name: 'Thiruvalluvar Statue', category: 'MONUMENT', estimatedDuration: '2-3 hours', entryFee: 70, location: 'Kanniyakumari Shore', latitude: 8.0779, longitude: 77.5540, description: '133-foot stone statue reachable by ferry.' },
+          { id: 4, name: 'Vivekananda Rock Memorial', category: 'HERITAGE', estimatedDuration: '2-3 hours', entryFee: 70, location: 'Kanniyakumari Island', latitude: 8.0782, longitude: 77.5554, description: 'Sacred island rock where Swami Vivekananda meditated.' },
+          { id: 12, name: 'Thirparappu Waterfalls', category: 'NATURE', estimatedDuration: '2-3 hours', entryFee: 10, location: 'Thirparappu, 55km', latitude: 8.3917, longitude: 77.2611, description: '30-metre cascade on Kodayar River with bathing ghats.' },
+          { id: 15, name: 'Mathoor Aqueduct', category: 'SCENIC', estimatedDuration: '1 hour', entryFee: 0, location: 'Mathoor', latitude: 8.3361, longitude: 77.2948, description: 'Asia\'s largest hanging trough bridge across the valley.' },
         ];
 
     const tripDays = Math.max(1, nights ? nights + 1 : 3);
@@ -172,6 +212,8 @@ export default function ItineraryDashboard() {
           activityDescription: dest.description || 'Iconic sightseeing spot.',
           comfortNotes,
           location: dest.location || 'Kanniyakumari District',
+          latitude: dest.latitude ?? resolveActivityCoords({ destinationName: dest.name }).lat,
+          longitude: dest.longitude ?? resolveActivityCoords({ destinationName: dest.name }).lng,
           entryFee: dest.entryFee || 0,
         };
       });
@@ -185,6 +227,12 @@ export default function ItineraryDashboard() {
       });
     }
 
+    const emotionalSupportMessage = hasProfile && (severity === 'HIGH' || severity === 'MODERATE')
+      ? severity === 'HIGH'
+        ? "Take a deep breath—I know cramps and fatigue can make travel feel daunting today, and you don't need to cancel a single thing. We've paced every stop with short walks, shaded rest areas, and nearby comfort amenities so you can still catch the beautiful Kanniyakumari sunrise at your own rhythm."
+        : "You've got this—we've thoughtfully built 30-minute rest buffers, hydration stops, and convenient comfort checkpoints into your schedule so you can feel cared for the whole way. Take each stop gently and enjoy every moment of your Kanniyakumari getaway without worrying about the pace."
+      : null;
+
     return {
       tripTitle: `Coimbatore ➔ Kanniyakumari ${tripDays}-Day AI Itinerary`,
       totalDays: tripDays,
@@ -193,6 +241,7 @@ export default function ItineraryDashboard() {
       cycleProfileSummary: hasProfile
         ? `Personalized for ${severity} Symptom Severity & ${pace} Travel Pace`
         : 'Standard Sightseeing Pacing (No cycle restrictions)',
+      emotionalSupportMessage,
       days,
       aiProvider: 'CycleAware Engine (Deterministic Synthesis)',
       generatedAt: new Date().toISOString(),
@@ -351,6 +400,25 @@ export default function ItineraryDashboard() {
         {/* MAIN ITINERARY CONTENT */}
         {!loading && itinerary && (
           <div className="space-y-8">
+            {/* Empathetic AI Support Banner */}
+            {itinerary.emotionalSupportMessage && (
+              <div className="rounded-3xl p-6 sm:p-7 bg-gradient-to-r from-pink-50 via-rose-50/70 to-purple-50 border border-pink-200/80 shadow-sm flex flex-col sm:flex-row items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-white border border-pink-100 flex items-center justify-center text-2xl shadow-sm flex-shrink-0">
+                  💖
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-pink-700 bg-white/90 px-2.5 py-0.5 rounded-full border border-pink-200">
+                      🌸 Your CycleAware Travel Companion
+                    </span>
+                  </div>
+                  <p className="text-sm sm:text-base font-semibold text-gray-800 leading-relaxed">
+                    {itinerary.emotionalSupportMessage}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* CycleAware Comfort Banner */}
             <div className="rounded-3xl p-6 bg-gradient-to-r from-purple-50 via-lavender-50 to-teal-50 border border-lavender-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-start gap-3.5">
@@ -471,20 +539,32 @@ export default function ItineraryDashboard() {
                           <span>{act.location}</span>
                         </div>
 
-                        {/* Dynamic Smart Comfort Badges */}
+                        {/* Dynamic Smart Comfort Badges (Clickable -> Live Nearby Amenities Modal) */}
                         {(() => {
                           const noteText = act.comfortNotes || act.comfortNote || '';
                           const badges = parseComfortBadges(noteText);
                           if (badges.length === 0) return null;
+                          const coords = resolveActivityCoords(act);
                           return (
                             <div className="flex flex-wrap items-center gap-2 mb-3.5">
                               {badges.map((b) => (
-                                <span
+                                <button
+                                  type="button"
                                   key={b.id}
-                                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-black border shadow-xs transition-colors ${b.className}`}
+                                  onClick={() =>
+                                    setAmenityModal({
+                                      isOpen: true,
+                                      lat: coords.lat,
+                                      lng: coords.lng,
+                                      badgeType: b.apiType,
+                                      destinationName: act.destinationName,
+                                    })
+                                  }
+                                  title={`Find nearby ${b.label.replace(/^[^\w]+/, '').trim()} around ${act.destinationName}`}
+                                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-black border shadow-xs transition-all cursor-pointer active:scale-95 ${b.className}`}
                                 >
                                   {b.label}
-                                </span>
+                                </button>
                               ))}
                             </div>
                           );
@@ -518,6 +598,14 @@ export default function ItineraryDashboard() {
           </div>
         )}
       </div>
+      <AmenityModal
+        isOpen={amenityModal.isOpen}
+        onClose={() => setAmenityModal((prev) => ({ ...prev, isOpen: false }))}
+        lat={amenityModal.lat}
+        lng={amenityModal.lng}
+        badgeType={amenityModal.badgeType}
+        destinationName={amenityModal.destinationName}
+      />
       <Footer />
     </div>
   );

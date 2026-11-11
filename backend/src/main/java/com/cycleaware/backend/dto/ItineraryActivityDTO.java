@@ -16,6 +16,8 @@ public class ItineraryActivityDTO {
     private String activityDescription;
     private String comfortNotes; // CycleAware comfort advice
     private String location;
+    private Double latitude;
+    private Double longitude;
     private Double entryFee;
 }
 

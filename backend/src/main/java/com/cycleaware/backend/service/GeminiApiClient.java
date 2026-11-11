@@ -55,7 +55,20 @@ public class GeminiApiClient {
             generationConfig.put("temperature", 0.2);
             generationConfig.put("responseMimeType", "application/json");
 
+            Map<String, Object> systemPart = new HashMap<>();
+            systemPart.put("text",
+                    "You are CycleAware's empathetic female travel planner and comfort companion. "
+                    + "For travelers in the MENSTRUAL_PHASE or with HIGH symptom severity, enforce "
+                    + "RULE 4 (Empathetic Support): Generate a warm, empowering 2-sentence 'emotionalSupportMessage'. "
+                    + "Act as a supportive female travel companion. Acknowledge their discomfort, but encourage them that the trip is fully optimized for their pacing and they do not need to cancel. "
+                    + "Use an empathetic, uplifting tone (e.g., 'Take a deep breath, we've got you covered with plenty of rest stops so you won't miss the beautiful Kanniyakumari sunrise.'). "
+                    + "Always include the 'emotionalSupportMessage' field strictly in the returned JSON object.");
+
+            Map<String, Object> systemInstruction = new HashMap<>();
+            systemInstruction.put("parts", Collections.singletonList(systemPart));
+
             Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("systemInstruction", systemInstruction);
             requestBody.put("contents", Collections.singletonList(content));
             requestBody.put("generationConfig", generationConfig);
 

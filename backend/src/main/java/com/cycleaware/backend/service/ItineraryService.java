@@ -67,7 +67,7 @@ public class ItineraryService {
 
         if (rawAiResponse != null && !rawAiResponse.isBlank()) {
             try {
-                ItineraryResponseDTO parsed = parseGeminiResponse(rawAiResponse, hasCycleProfile, cycleProfile, tripDays, destinations.size());
+                ItineraryResponseDTO parsed = parseGeminiResponse(rawAiResponse, hasCycleProfile, cycleProfile, tripDays, destinations);
                 if (parsed != null && parsed.getDays() != null && !parsed.getDays().isEmpty()) {
                     parsed.setAiProvider("Google Gemini 1.5 Flash (Direct API)");
                     parsed.setGeneratedAt(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
@@ -132,6 +132,10 @@ public class ItineraryService {
             } else if (profile.getPreferredPace() == PreferredPace.ACTIVE) {
                 sb.append("• ACTIVE PACE: Efficiently plan activities in cooler morning and sunset hours.\n");
             }
+
+            if (profile.getSymptomSeverity() == SymptomSeverity.HIGH || profile.getSymptomSeverity() == SymptomSeverity.MODERATE) {
+                sb.append("• RULE 4 (Empathetic Support): Generate a warm, empowering 2-sentence 'emotionalSupportMessage'. Act as a supportive female travel companion. Acknowledge their discomfort, but encourage them that the trip is fully optimized for their pacing and they do not need to cancel. Use an empathetic, uplifting tone (e.g., 'Take a deep breath, we've got you covered with plenty of rest stops so you won't miss the beautiful Kanniyakumari sunrise.').\n");
+            }
         } else {
             sb.append("• RULE 1 (Location-Specific Real Amenities): DO NOT use generic text or repeat these instructions. You MUST use your real-world geographical knowledge of Kanniyakumari to provide SPECIFIC, factual details for EACH destination (exact restrooms, nearest pharmacy with sanitary pads, nearest clinic/hospital for emergencies, and local tender coconut/juice stalls).\n");
         }
@@ -144,6 +148,7 @@ public class ItineraryService {
         sb.append("  \"totalDestinations\": ").append(destinations.size()).append(",\n");
         sb.append("  \"cycleAwarePersonalized\": ").append(profile != null).append(",\n");
         sb.append("  \"cycleProfileSummary\": \"String describing how comfort modifiers were applied\",\n");
+        sb.append("  \"emotionalSupportMessage\": \"String (Required 2-sentence uplifting companion message for MENSTRUAL_PHASE/HIGH or MODERATE symptoms; empty string otherwise)\",\n");
         sb.append("  \"days\": [\n");
         sb.append("    {\n");
         sb.append("      \"dayNumber\": 1,\n");
@@ -171,8 +176,13 @@ public class ItineraryService {
         return sb.toString();
     }
 
-    private ItineraryResponseDTO parseGeminiResponse(String rawJson, boolean hasCycleProfile, CycleProfile profile, int tripDays, int destinationCount) {
+    private ItineraryResponseDTO parseGeminiResponse(String rawJson, boolean hasCycleProfile, CycleProfile profile, int tripDays, List<Destination> destinations) {
         try {
+            int destinationCount = destinations.size();
+            Map<Long, Destination> destById = destinations.stream()
+                    .filter(d -> d.getId() != null)
+                    .collect(Collectors.toMap(Destination::getId, d -> d, (a, b) -> a));
+
             // Strip any accidental markdown formatting
             String cleanJson = rawJson.trim();
             if (cleanJson.startsWith("```json")) {
@@ -191,6 +201,14 @@ public class ItineraryService {
             String cycleSummary = root.path("cycleProfileSummary").asText(
                     hasCycleProfile ? "Personalized with CycleAware comfort modifiers" : "Standard balanced pacing"
             );
+            String emotionalSupportMessage = root.path("emotionalSupportMessage").asText("").trim();
+            if (emotionalSupportMessage.isEmpty() && hasCycleProfile && profile != null
+                    && (profile.getSymptomSeverity() == SymptomSeverity.HIGH || profile.getSymptomSeverity() == SymptomSeverity.MODERATE)) {
+                emotionalSupportMessage = buildEmpatheticSupportMessage(profile.getSymptomSeverity());
+            }
+            if (emotionalSupportMessage.isEmpty()) {
+                emotionalSupportMessage = null;
+            }
 
             List<ItineraryDayDTO> days = new ArrayList<>();
             JsonNode daysNode = root.path("days");
@@ -204,16 +222,28 @@ public class ItineraryService {
                                     ? act.path("comfortNote").asText()
                                     : act.path("comfortNotes").asText("");
 
+                            long destId = act.path("destinationId").asLong(0L);
+                            Destination matchedDest = destById.get(destId);
+                            String destName = act.path("destinationName").asText("Attraction");
+                            if (matchedDest == null) {
+                                matchedDest = destinations.stream()
+                                        .filter(d -> d.getName() != null && d.getName().equalsIgnoreCase(destName))
+                                        .findFirst()
+                                        .orElse(null);
+                            }
+
                             activities.add(ItineraryActivityDTO.builder()
                                     .timeSlot(act.path("timeSlot").asText("Daytime"))
                                     .timeRange(act.path("timeRange").asText("Flexible"))
-                                    .destinationId(act.path("destinationId").asLong(0L))
-                                    .destinationName(act.path("destinationName").asText("Attraction"))
+                                    .destinationId(destId)
+                                    .destinationName(destName)
                                     .category(act.path("category").asText("SCENIC"))
                                     .duration(act.path("duration").asText("1-2 hours"))
                                     .activityDescription(act.path("activityDescription").asText(""))
                                     .comfortNotes(cNote)
                                     .location(act.path("location").asText("Kanniyakumari"))
+                                    .latitude(matchedDest != null && matchedDest.getLatitude() != null ? matchedDest.getLatitude() : 8.0883)
+                                    .longitude(matchedDest != null && matchedDest.getLongitude() != null ? matchedDest.getLongitude() : 77.5385)
                                     .entryFee(act.path("entryFee").asDouble(0.0))
                                     .build());
                         }
@@ -235,6 +265,7 @@ public class ItineraryService {
                     .totalDestinations(destinationCount)
                     .cycleAwarePersonalized(hasCycleProfile)
                     .cycleProfileSummary(cycleSummary)
+                    .emotionalSupportMessage(emotionalSupportMessage)
                     .days(days)
                     .build();
         } catch (Exception e) {
@@ -325,6 +356,8 @@ public class ItineraryService {
                         .activityDescription(dest.getDescription())
                         .comfortNotes(comfortNotes)
                         .location(dest.getLocation())
+                        .latitude(dest.getLatitude() != null ? dest.getLatitude() : 8.0883)
+                        .longitude(dest.getLongitude() != null ? dest.getLongitude() : 77.5385)
                         .entryFee(dest.getEntryFee() != null ? dest.getEntryFee() : 0.0)
                         .build());
             }
@@ -338,16 +371,28 @@ public class ItineraryService {
                     .build());
         }
 
+        String emotionalSupportMessage = (hasProfile && (severity == SymptomSeverity.HIGH || severity == SymptomSeverity.MODERATE))
+                ? buildEmpatheticSupportMessage(severity)
+                : null;
+
         return ItineraryResponseDTO.builder()
                 .tripTitle(title)
                 .totalDays(tripDays)
                 .totalDestinations(destinations.size())
                 .cycleAwarePersonalized(hasProfile)
                 .cycleProfileSummary(profileSummary)
+                .emotionalSupportMessage(emotionalSupportMessage)
                 .days(days)
                 .aiProvider("CycleAware Engine (Deterministic Synthesis)")
                 .generatedAt(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
                 .build();
+    }
+
+    private String buildEmpatheticSupportMessage(SymptomSeverity severity) {
+        if (severity == SymptomSeverity.HIGH) {
+            return "Take a deep breath, we've got you covered with plenty of shaded rest stops, gentle pacing, and nearby comfort amenities so you won't miss the beautiful Kanniyakumari sunrise. It's completely okay to feel uncomfortable today—you don't need to cancel your trip because every stop is thoughtfully tailored around your energy.";
+        }
+        return "You're in safe hands—we've paced your journey with relaxing 30-minute rest buffers, hydration stops, and convenient washroom checkpoints along the coast. Even with moderate discomfort, you don't need to miss out on Kanniyakumari's magic because this plan moves entirely at your rhythm.";
     }
 
     private String buildComfortNote(Destination dest, SymptomSeverity severity, PreferredPace pace) {
